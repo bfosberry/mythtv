@@ -57,6 +57,7 @@ class HDHRStreamHandler : public StreamHandler
     } // StreamHandler
 
     void GetTunerStatus(struct hdhomerun_tuner_status_t *status);
+    void GetTunerVStatus(struct hdhomerun_tuner_vstatus_t *vstatus);
     bool IsConnected(void) const;
     vector<DTVTunerType> GetTunerTypes(void) const { return _tuner_types; }
 

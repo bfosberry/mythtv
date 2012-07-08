@@ -3,6 +3,7 @@
 // POSIX headers
 #include <fcntl.h>
 #include <unistd.h>
+#include <sstream>
 #ifndef USING_MINGW
 #include <sys/select.h>
 #include <sys/ioctl.h>
@@ -16,7 +17,6 @@
 #include "mpegstreamdata.h"
 #include "cardutil.h"
 #include "mythlogging.h"
-
 #define LOC      QString("HDHRSH(%1): ").arg(_device)
 
 QMap<QString,HDHRStreamHandler*> HDHRStreamHandler::_handlers;
@@ -130,6 +130,8 @@ void HDHRStreamHandler::run(void)
 
     int remainder = 0;
     QTime last_update;
+    bool vstatus_set = false;
+    int count=0;
     while (_running_desired && !_error)
     {
         int elapsed = !last_update.isValid() ? -1 : last_update.elapsed();
@@ -140,6 +142,24 @@ void HDHRStreamHandler::run(void)
             if (_tune_mode != hdhrTuneModeVChannel)
                 UpdateFilters();
             last_update.restart();
+        }
+        if (count <= 2000) {
+            count ++;
+        } else if (count > 2000 && !vstatus_set)
+        {   
+            struct hdhomerun_tuner_vstatus_t vstatus;
+            GetTunerVStatus(&vstatus);
+            if (vstatus.copy_protected == true)
+            {
+              LOG(VB_GENERAL, LOG_ERR, LOC +
+                 "Protected Channel");
+              _error=true;
+              return;
+            } else {
+              LOG(VB_GENERAL, LOG_ERR, LOC +
+                 "Non-Protected Channel");
+            }
+            vstatus_set=true;
         }
 
         size_t read_size = 64 * 1024; // read about 64KB
@@ -443,6 +463,11 @@ QString HDHRStreamHandler::TunerSet(
 void HDHRStreamHandler::GetTunerStatus(struct hdhomerun_tuner_status_t *status)
 {
     hdhomerun_device_get_tuner_status(_hdhomerun_device, NULL, status);
+}
+
+void HDHRStreamHandler::GetTunerVStatus(struct hdhomerun_tuner_vstatus_t *vstatus)
+{
+    hdhomerun_device_get_tuner_vstatus(_hdhomerun_device, NULL, vstatus);
 }
 
 bool HDHRStreamHandler::IsConnected(void) const
